@@ -21,7 +21,7 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   // Log do erro para debug
   console.error('❌ Erro capturado:', {
@@ -55,8 +55,7 @@ export const errorHandler = (
  */
 export const notFoundHandler = (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): void => {
   res.status(404).json({
     success: false,
@@ -68,9 +67,9 @@ export const notFoundHandler = (
  * Wrapper assíncrono para evitar try-catch em todos os controllers
  */
 export const asyncHandler = (
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
 ) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };

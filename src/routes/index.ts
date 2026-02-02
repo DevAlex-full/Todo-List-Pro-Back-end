@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import tasksRoutes from './tasks.routes';
 import categoriesRoutes from './categories.routes';
 import subtasksRoutes from './subtasks.routes';
@@ -8,7 +8,7 @@ import profileRoutes from './profile.routes';
 const router = Router();
 
 // Rota de health check (sem autenticação)
-router.get('/health', (req, res) => {
+router.get('/health', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'API Todo List Pro está funcionando! 🚀',

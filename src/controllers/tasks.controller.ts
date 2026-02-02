@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { AppError, asyncHandler } from '../middlewares/error.middleware';
-import { CreateTaskDTO, UpdateTaskDTO, Task } from '../types';
+import { CreateTaskDTO, UpdateTaskDTO } from '../types';
 
 /**
  * LISTAR TODAS AS TAREFAS DO USUÁRIO
  */
-export const getTasks = asyncHandler(async (req: Request, res: Response) => {
+export const getTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { status, priority, category_id, search, tags } = req.query;
 
@@ -53,7 +53,7 @@ export const getTasks = asyncHandler(async (req: Request, res: Response) => {
 /**
  * BUSCAR UMA TAREFA ESPECÍFICA
  */
-export const getTaskById = asyncHandler(async (req: Request, res: Response) => {
+export const getTaskById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
 
@@ -77,7 +77,7 @@ export const getTaskById = asyncHandler(async (req: Request, res: Response) => {
 /**
  * CRIAR NOVA TAREFA
  */
-export const createTask = asyncHandler(async (req: Request, res: Response) => {
+export const createTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const taskData: CreateTaskDTO = req.body;
 
@@ -116,7 +116,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
 /**
  * ATUALIZAR TAREFA
  */
-export const updateTask = asyncHandler(async (req: Request, res: Response) => {
+export const updateTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
   const updates: UpdateTaskDTO = req.body;
@@ -134,13 +134,16 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Se está marcando como completa, adicionar completed_at
+  // Criar novo objeto com tipo estendido
+  const updateData: UpdateTaskDTO & { completed_at?: string | null } = { ...updates };
+  
   if (updates.status === 'completed') {
-    updates.completed_at = new Date().toISOString();
+    updateData.completed_at = new Date().toISOString();
   }
 
   const { data, error } = await supabase
     .from('tasks')
-    .update(updates)
+    .update(updateData)
     .eq('id', id)
     .eq('user_id', userId)
     .select('*, category:categories(*), subtasks(*)')
@@ -160,7 +163,7 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
 /**
  * DELETAR TAREFA
  */
-export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
+export const deleteTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
 
@@ -183,9 +186,9 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
 /**
  * REORDENAR TAREFAS (drag and drop)
  */
-export const reorderTasks = asyncHandler(async (req: Request, res: Response) => {
+export const reorderTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { taskIds } = req.body; // Array de IDs na nova ordem
+  const { taskIds } = req.body;
 
   if (!Array.isArray(taskIds) || taskIds.length === 0) {
     throw new AppError(400, 'Array de IDs é obrigatório');
@@ -211,7 +214,7 @@ export const reorderTasks = asyncHandler(async (req: Request, res: Response) => 
 /**
  * MARCAR TAREFA COMO COMPLETA/INCOMPLETA (toggle)
  */
-export const toggleTaskComplete = asyncHandler(async (req: Request, res: Response) => {
+export const toggleTaskComplete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
 
@@ -255,7 +258,7 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
 /**
  * BUSCAR TAREFAS ATRASADAS
  */
-export const getOverdueTasks = asyncHandler(async (req: Request, res: Response) => {
+export const getOverdueTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
 
   const { data, error } = await supabase
@@ -279,7 +282,7 @@ export const getOverdueTasks = asyncHandler(async (req: Request, res: Response) 
 /**
  * BUSCAR TAREFAS DO DIA
  */
-export const getTodayTasks = asyncHandler(async (req: Request, res: Response) => {
+export const getTodayTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const today = new Date();
   today.setHours(0, 0, 0, 0);

@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -66,7 +66,7 @@ if (process.env.NODE_ENV === 'development') {
 // ========================================
 
 // Rota raiz
-app.get('/', (req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: '🚀 Todo List Pro API',
