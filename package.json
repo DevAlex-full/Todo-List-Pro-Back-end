@@ -1,0 +1,50 @@
+{
+  "name": "todo-list-backend",
+  "version": "1.0.0",
+  "description": "Backend API para Todo List Pro com Node.js, Express e Supabase",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint src --ext .ts",
+    "test": "jest --coverage",
+    "migrate": "node scripts/migrate.js"
+  },
+  "keywords": [
+    "todo",
+    "api",
+    "express",
+    "typescript",
+    "supabase"
+  ],
+  "author": "Você",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^7.1.5",
+    "joi": "^17.11.0",
+    "compression": "^1.7.4",
+    "date-fns": "^3.0.6"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/morgan": "^1.9.9",
+    "@types/compression": "^1.7.5",
+    "@types/node": "^20.10.6",
+    "@types/jest": "^29.5.11",
+    "@typescript-eslint/eslint-plugin": "^6.16.0",
+    "@typescript-eslint/parser": "^6.16.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
