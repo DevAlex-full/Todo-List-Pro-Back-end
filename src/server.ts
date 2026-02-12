@@ -99,8 +99,14 @@ const server = app.listen(PORT, () => {
   console.log('🎯 ===================================');
   console.log(`📡 Servidor rodando na porta: ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 URL: http://localhost:${PORT}`);
-  console.log(`✅ Health Check: http://localhost:${PORT}/api/health`);
+
+  const baseUrl =
+    process.env.NODE_ENV === 'production'
+      ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+      : `http://localhost:${PORT}`;
+
+  console.log(`🔗 URL: ${baseUrl}`);
+  console.log(`✅ Health Check: ${baseUrl}/api/health`);
   console.log('🎯 ===================================');
   console.log('');
 });
