@@ -102,7 +102,9 @@ const server = app.listen(PORT, () => {
 
   const baseUrl =
     process.env.NODE_ENV === 'production'
-      ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+      ? process.env.RENDER_EXTERNAL_HOSTNAME
+        ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+        : `https://taskflow-sai5.onrender.com`
       : `http://localhost:${PORT}`;
 
   console.log(`🔗 URL: ${baseUrl}`);
