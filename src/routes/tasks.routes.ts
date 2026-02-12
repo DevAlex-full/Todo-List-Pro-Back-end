@@ -23,8 +23,11 @@ router.get('/:id', tasksController.getTaskById);
 // POST /api/tasks - Criar nova tarefa
 router.post('/', validate(taskSchemas.create), tasksController.createTask);
 
-// PUT /api/tasks/:id - Atualizar tarefa
+// PUT /api/tasks/:id - Atualizar tarefa (completa)
 router.put('/:id', validate(taskSchemas.update), tasksController.updateTask);
+
+// PATCH /api/tasks/:id - Atualizar tarefa (parcial) - ADICIONADO!
+router.patch('/:id', validate(taskSchemas.update), tasksController.updateTask);
 
 // PATCH /api/tasks/:id/toggle - Toggle completa/incompleta
 router.patch('/:id/toggle', tasksController.toggleTaskComplete);

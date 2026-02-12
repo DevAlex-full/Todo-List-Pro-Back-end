@@ -9,15 +9,21 @@ import { CreateCategoryDTO, UpdateCategoryDTO } from '../types';
 export const getCategories = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
+  console.log('🔍 Buscando categorias para user:', userId);
+
+  // REMOVIDO tasks:tasks(count) que causava array vazio
   const { data, error } = await supabase
     .from('categories')
-    .select('*, tasks:tasks(count)')
+    .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) {
+    console.error('❌ Erro ao buscar categorias:', error);
     throw new AppError(500, 'Erro ao buscar categorias: ' + error.message);
   }
+
+  console.log('✅ Categorias encontradas:', data?.length || 0);
 
   res.json({
     success: true,
@@ -34,12 +40,16 @@ export const getCategoryById = asyncHandler(async (req: Request, res: Response) 
 
   const { data, error } = await supabase
     .from('categories')
-    .select('*, tasks(*)')
+    .select('*')
     .eq('id', id)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    throw new AppError(500, 'Erro ao buscar categoria: ' + error.message);
+  }
+
+  if (!data) {
     throw new AppError(404, 'Categoria não encontrada');
   }
 
@@ -56,13 +66,15 @@ export const createCategory = asyncHandler(async (req: Request, res: Response) =
   const userId = req.user!.id;
   const categoryData: CreateCategoryDTO = req.body;
 
-  // Verificar se já existe uma categoria com esse nome
+  console.log('📝 Criando categoria:', categoryData);
+
+  // Verificar se já existe uma categoria com esse nome - USANDO maybeSingle()
   const { data: existing } = await supabase
     .from('categories')
     .select('id')
     .eq('user_id', userId)
     .eq('name', categoryData.name)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     throw new AppError(400, 'Já existe uma categoria com esse nome');
@@ -78,8 +90,11 @@ export const createCategory = asyncHandler(async (req: Request, res: Response) =
     .single();
 
   if (error) {
+    console.error('❌ Erro ao criar categoria:', error);
     throw new AppError(500, 'Erro ao criar categoria: ' + error.message);
   }
+
+  console.log('✅ Categoria criada:', data);
 
   res.status(201).json({
     success: true,
@@ -96,19 +111,19 @@ export const updateCategory = asyncHandler(async (req: Request, res: Response) =
   const { id } = req.params;
   const updates: UpdateCategoryDTO = req.body;
 
-  // Verificar se a categoria existe e pertence ao usuário
+  // Verificar se a categoria existe - USANDO maybeSingle()
   const { data: existingCategory } = await supabase
     .from('categories')
     .select('id')
     .eq('id', id)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!existingCategory) {
     throw new AppError(404, 'Categoria não encontrada');
   }
 
-  // Se está alterando o nome, verificar duplicação
+  // Se está alterando o nome, verificar duplicação - USANDO maybeSingle()
   if (updates.name) {
     const { data: duplicate } = await supabase
       .from('categories')
@@ -116,7 +131,7 @@ export const updateCategory = asyncHandler(async (req: Request, res: Response) =
       .eq('user_id', userId)
       .eq('name', updates.name)
       .neq('id', id)
-      .single();
+      .maybeSingle();
 
     if (duplicate) {
       throw new AppError(400, 'Já existe uma categoria com esse nome');
@@ -149,6 +164,8 @@ export const deleteCategory = asyncHandler(async (req: Request, res: Response) =
   const userId = req.user!.id;
   const { id } = req.params;
 
+  console.log('🗑️ Deletando categoria:', id);
+
   // Verificar se existem tarefas nesta categoria
   const { data: tasks } = await supabase
     .from('tasks')
@@ -170,8 +187,11 @@ export const deleteCategory = asyncHandler(async (req: Request, res: Response) =
     .eq('user_id', userId);
 
   if (error) {
+    console.error('❌ Erro ao deletar categoria:', error);
     throw new AppError(500, 'Erro ao deletar categoria: ' + error.message);
   }
+
+  console.log('✅ Categoria deletada');
 
   res.json({
     success: true,

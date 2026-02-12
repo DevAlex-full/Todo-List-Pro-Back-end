@@ -16,23 +16,10 @@ export const getTasks = asyncHandler(async (req: Request, res: Response): Promis
     .eq('user_id', userId)
     .order('position', { ascending: true });
 
-  // Filtros opcionais
-  if (status) {
-    query = query.eq('status', status);
-  }
-
-  if (priority) {
-    query = query.eq('priority', priority);
-  }
-
-  if (category_id) {
-    query = query.eq('category_id', category_id);
-  }
-
-  if (search) {
-    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-  }
-
+  if (status) query = query.eq('status', status);
+  if (priority) query = query.eq('priority', priority);
+  if (category_id) query = query.eq('category_id', category_id);
+  if (search) query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
   if (tags) {
     const tagsArray = Array.isArray(tags) ? tags : [tags];
     query = query.contains('tags', tagsArray);
@@ -62,9 +49,13 @@ export const getTaskById = asyncHandler(async (req: Request, res: Response): Pro
     .select('*, category:categories(*), subtasks(*)')
     .eq('id', id)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    throw new AppError(500, 'Erro ao buscar tarefa: ' + error.message);
+  }
+
+  if (!data) {
     throw new AppError(404, 'Tarefa não encontrada');
   }
 
@@ -75,11 +66,14 @@ export const getTaskById = asyncHandler(async (req: Request, res: Response): Pro
 });
 
 /**
- * CRIAR NOVA TAREFA
+ * CRIAR NOVA TAREFA - COM SERVICE ROLE (IGNORA RLS)
  */
 export const createTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const taskData: CreateTaskDTO = req.body;
+
+  console.log('📝 Criando tarefa para user:', userId);
+  console.log('📋 Dados recebidos:', taskData);
 
   // Pegar a última posição
   const { data: lastTask } = await supabase
@@ -88,23 +82,45 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
     .eq('user_id', userId)
     .order('position', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const newPosition = lastTask ? lastTask.position + 1 : 0;
 
+  console.log('📊 Nova posição:', newPosition);
+
+  // INSERIR COM SERVICE ROLE - BYPASS TOTAL DE RLS
+  const taskToInsert = {
+    title: taskData.title,
+    description: taskData.description || null,
+    category_id: taskData.category_id || null,
+    priority: taskData.priority || 'medium',
+    status: 'pending',
+    due_date: taskData.due_date || null,
+    reminder_date: taskData.reminder_date || null,
+    is_recurring: taskData.is_recurring || false,
+    recurrence_pattern: taskData.recurrence_pattern || null,
+    recurrence_interval: taskData.recurrence_interval || null,
+    estimated_time: taskData.estimated_time || null,
+    tags: taskData.tags || [],
+    attachments: taskData.attachments || [],
+    user_id: userId,
+    position: newPosition,
+  };
+
+  console.log('💾 Inserindo no banco:', taskToInsert);
+
   const { data, error } = await supabase
     .from('tasks')
-    .insert({
-      ...taskData,
-      user_id: userId,
-      position: newPosition,
-    })
-    .select('*, category:categories(*)')
+    .insert(taskToInsert)
+    .select('*')
     .single();
 
   if (error) {
+    console.error('❌ ERRO AO INSERIR:', error);
     throw new AppError(500, 'Erro ao criar tarefa: ' + error.message);
   }
+
+  console.log('✅ Tarefa criada com sucesso!', data);
 
   res.status(201).json({
     success: true,
@@ -121,20 +137,17 @@ export const updateTask = asyncHandler(async (req: Request, res: Response): Prom
   const { id } = req.params;
   const updates: UpdateTaskDTO = req.body;
 
-  // Verificar se a tarefa existe e pertence ao usuário
   const { data: existingTask } = await supabase
     .from('tasks')
     .select('id')
     .eq('id', id)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!existingTask) {
     throw new AppError(404, 'Tarefa não encontrada');
   }
 
-  // Se está marcando como completa, adicionar completed_at
-  // Criar novo objeto com tipo estendido
   const updateData: UpdateTaskDTO & { completed_at?: string | null } = { ...updates };
   
   if (updates.status === 'completed') {
@@ -184,7 +197,7 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response): Prom
 });
 
 /**
- * REORDENAR TAREFAS (drag and drop)
+ * REORDENAR TAREFAS
  */
 export const reorderTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -194,7 +207,6 @@ export const reorderTasks = asyncHandler(async (req: Request, res: Response): Pr
     throw new AppError(400, 'Array de IDs é obrigatório');
   }
 
-  // Atualizar posição de cada tarefa
   const updates = taskIds.map((taskId, index) =>
     supabase
       .from('tasks')
@@ -212,19 +224,18 @@ export const reorderTasks = asyncHandler(async (req: Request, res: Response): Pr
 });
 
 /**
- * MARCAR TAREFA COMO COMPLETA/INCOMPLETA (toggle)
+ * TOGGLE COMPLETA/INCOMPLETA
  */
 export const toggleTaskComplete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
 
-  // Buscar tarefa atual
   const { data: currentTask } = await supabase
     .from('tasks')
     .select('status')
     .eq('id', id)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!currentTask) {
     throw new AppError(404, 'Tarefa não encontrada');
@@ -256,7 +267,7 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
- * BUSCAR TAREFAS ATRASADAS
+ * TAREFAS ATRASADAS
  */
 export const getOverdueTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -280,7 +291,7 @@ export const getOverdueTasks = asyncHandler(async (req: Request, res: Response):
 });
 
 /**
- * BUSCAR TAREFAS DO DIA
+ * TAREFAS DO DIA
  */
 export const getTodayTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
