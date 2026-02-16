@@ -66,14 +66,11 @@ export const getTaskById = asyncHandler(async (req: Request, res: Response): Pro
 });
 
 /**
- * CRIAR NOVA TAREFA - COM SERVICE ROLE (IGNORA RLS)
+ * CRIAR NOVA TAREFA
  */
 export const createTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const taskData: CreateTaskDTO = req.body;
-
-  console.log('📝 Criando tarefa para user:', userId);
-  console.log('📋 Dados recebidos:', taskData);
 
   // Pegar a última posição
   const { data: lastTask } = await supabase
@@ -86,9 +83,6 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
 
   const newPosition = lastTask ? lastTask.position + 1 : 0;
 
-  console.log('📊 Nova posição:', newPosition);
-
-  // INSERIR COM SERVICE ROLE - BYPASS TOTAL DE RLS
   const taskToInsert = {
     title: taskData.title,
     description: taskData.description || null,
@@ -107,8 +101,6 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
     position: newPosition,
   };
 
-  console.log('💾 Inserindo no banco:', taskToInsert);
-
   const { data, error } = await supabase
     .from('tasks')
     .insert(taskToInsert)
@@ -120,8 +112,6 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
     throw new AppError(500, 'Erro ao criar tarefa: ' + error.message);
   }
 
-  console.log('✅ Tarefa criada com sucesso!', data);
-
   res.status(201).json({
     success: true,
     data,
@@ -130,16 +120,17 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
 });
 
 /**
- * ATUALIZAR TAREFA
+ * ATUALIZAR TAREFA - COM CÁLCULO DE TEMPO
  */
 export const updateTask = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { id } = req.params;
   const updates: UpdateTaskDTO = req.body;
 
+  // Verificar se a tarefa existe e pegar created_at
   const { data: existingTask } = await supabase
     .from('tasks')
-    .select('id')
+    .select('id, status, created_at')
     .eq('id', id)
     .eq('user_id', userId)
     .maybeSingle();
@@ -148,10 +139,32 @@ export const updateTask = asyncHandler(async (req: Request, res: Response): Prom
     throw new AppError(404, 'Tarefa não encontrada');
   }
 
-  const updateData: UpdateTaskDTO & { completed_at?: string | null } = { ...updates };
+  // Preparar dados para update
+  const updateData: any = { ...updates };
   
-  if (updates.status === 'completed') {
+  // ✅ Se marcar como completa, calcular tempo_real
+  if (updates.status === 'completed' && existingTask.status !== 'completed') {
     updateData.completed_at = new Date().toISOString();
+    
+    // Calcular tempo gasto
+    if (existingTask.created_at) {
+      try {
+        const createdAt = new Date(existingTask.created_at);
+        const completedAt = new Date();
+        const timeSpentMs = completedAt.getTime() - createdAt.getTime();
+        const timeSpentMinutes = Math.round(timeSpentMs / 60000);
+        updateData.tempo_real = timeSpentMinutes;
+        console.log(`⏱️ Tempo calculado: ${timeSpentMinutes} minutos`);
+      } catch (err) {
+        console.warn('⚠️ Erro ao calcular tempo, ignorando:', err);
+      }
+    }
+  }
+  
+  // Se reabrir, limpar completed_at e tempo_real
+  if (updates.status === 'pending' && existingTask.status === 'completed') {
+    updateData.completed_at = null;
+    updateData.tempo_real = null;
   }
 
   const { data, error } = await supabase
@@ -163,6 +176,7 @@ export const updateTask = asyncHandler(async (req: Request, res: Response): Prom
     .single();
 
   if (error) {
+    console.error('❌ ERRO AO ATUALIZAR:', error);
     throw new AppError(500, 'Erro ao atualizar tarefa: ' + error.message);
   }
 
@@ -187,6 +201,7 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response): Prom
     .eq('user_id', userId);
 
   if (error) {
+    console.error('❌ ERRO AO DELETAR:', error);
     throw new AppError(500, 'Erro ao deletar tarefa: ' + error.message);
   }
 
@@ -224,7 +239,7 @@ export const reorderTasks = asyncHandler(async (req: Request, res: Response): Pr
 });
 
 /**
- * TOGGLE COMPLETA/INCOMPLETA
+ * TOGGLE COMPLETA/INCOMPLETA - COM CÁLCULO DE TEMPO
  */
 export const toggleTaskComplete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -232,7 +247,7 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
 
   const { data: currentTask } = await supabase
     .from('tasks')
-    .select('status')
+    .select('status, created_at')
     .eq('id', id)
     .eq('user_id', userId)
     .maybeSingle();
@@ -242,20 +257,45 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
   }
 
   const newStatus = currentTask.status === 'completed' ? 'pending' : 'completed';
-  const completed_at = newStatus === 'completed' ? new Date().toISOString() : null;
+  
+  let updateData: any = {
+    status: newStatus,
+  };
+  
+  // ✅ Calcular tempo_real ao completar
+  if (newStatus === 'completed') {
+    updateData.completed_at = new Date().toISOString();
+    
+    // Calcular tempo gasto em minutos
+    if (currentTask.created_at) {
+      try {
+        const createdAt = new Date(currentTask.created_at);
+        const completedAt = new Date();
+        const timeSpentMs = completedAt.getTime() - createdAt.getTime();
+        const timeSpentMinutes = Math.round(timeSpentMs / 60000);
+        updateData.tempo_real = timeSpentMinutes;
+        console.log(`⏱️ Tempo calculado: ${timeSpentMinutes} minutos`);
+      } catch (err) {
+        console.warn('⚠️ Erro ao calcular tempo, ignorando:', err);
+        // Continua sem tempo_real se der erro
+      }
+    }
+  } else {
+    // Reabrir - limpar completed_at e tempo_real
+    updateData.completed_at = null;
+    updateData.tempo_real = null;
+  }
 
   const { data, error } = await supabase
     .from('tasks')
-    .update({ 
-      status: newStatus,
-      completed_at,
-    })
+    .update(updateData)
     .eq('id', id)
     .eq('user_id', userId)
     .select('*, category:categories(*), subtasks(*)')
     .single();
 
   if (error) {
+    console.error('❌ ERRO AO TOGGLE:', error);
     throw new AppError(500, 'Erro ao atualizar tarefa: ' + error.message);
   }
 
