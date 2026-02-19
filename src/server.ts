@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+import { startKeepAlive } from './keepAlive';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -98,7 +99,7 @@ const server = app.listen(PORT, () => {
   console.log('🚀 Todo List Pro API');
   console.log('🎯 ===================================');
   console.log(`📡 Servidor rodando na porta: ${PORT}`);
-  console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
 
   const baseUrl =
     process.env.NODE_ENV === 'production'
@@ -111,6 +112,9 @@ const server = app.listen(PORT, () => {
   console.log(`✅ Health Check: ${baseUrl}/api/health`);
   console.log('🎯 ===================================');
   console.log('');
+
+  // 🔄 Iniciar Keep-Alive (apenas em produção)
+  startKeepAlive();
 });
 
 // Graceful shutdown
