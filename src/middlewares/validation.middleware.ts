@@ -7,8 +7,8 @@ import Joi from 'joi';
 export const validate = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const { error, value } = schema.validate(req.body, {
-      abortEarly: false, // Retorna todos os erros, não apenas o primeiro
-      stripUnknown: true, // Remove campos não definidos no schema
+      abortEarly: false,
+      stripUnknown: true,
     });
 
     if (error) {
@@ -25,7 +25,6 @@ export const validate = (schema: Joi.ObjectSchema) => {
       return;
     }
 
-    // Substituir req.body pelos dados validados e sanitizados
     req.body = value;
     next();
   };
@@ -44,7 +43,7 @@ export const taskSchemas = {
     description: Joi.string().max(5000).allow('', null).optional(),
     category_id: Joi.string().uuid().allow(null).optional(),
     priority: Joi.string().valid('low', 'medium', 'high', 'urgent').default('medium'),
-    due_date: Joi.date().iso().allow(null).optional(),
+    start_date: Joi.date().iso().allow(null).optional(), // ✅ ALTERADO: due_date → start_date
     reminder_date: Joi.date().iso().allow(null).optional(),
     is_recurring: Joi.boolean().default(false),
     recurrence_pattern: Joi.string()
@@ -72,7 +71,7 @@ export const taskSchemas = {
     category_id: Joi.string().uuid().allow(null).optional(),
     priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
     status: Joi.string().valid('pending', 'in_progress', 'completed', 'archived').optional(),
-    due_date: Joi.date().iso().allow(null).optional(),
+    start_date: Joi.date().iso().allow(null).optional(), // ✅ ALTERADO: due_date → start_date
     reminder_date: Joi.date().iso().allow(null).optional(),
     is_recurring: Joi.boolean().optional(),
     recurrence_pattern: Joi.string()
@@ -81,7 +80,7 @@ export const taskSchemas = {
       .optional(),
     recurrence_interval: Joi.number().integer().min(1).allow(null).optional(),
     estimated_time: Joi.number().integer().min(0).allow(null).optional(),
-    actual_time: Joi.number().integer().min(0).allow(null).optional(),
+    tempo_real: Joi.number().integer().min(0).allow(null).optional(),
     tags: Joi.array().items(Joi.string().max(50)).optional(),
     attachments: Joi.array()
       .items(
@@ -94,7 +93,7 @@ export const taskSchemas = {
       )
       .optional(),
     position: Joi.number().integer().min(0).optional(),
-  }).min(1), // Pelo menos um campo deve ser fornecido
+  }).min(1),
 };
 
 export const categorySchemas = {

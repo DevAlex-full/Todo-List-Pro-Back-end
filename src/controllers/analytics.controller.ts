@@ -31,7 +31,7 @@ export const getStatistics = asyncHandler(async (req: Request, res: Response) =>
 
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select('status, due_date, tempo_real, created_at')
+    .select('status, start_date, estimated_time, tempo_real, created_at')
     .eq('user_id', userId)
     .gte('created_at', startDate.toISOString());
 
@@ -41,7 +41,22 @@ export const getStatistics = asyncHandler(async (req: Request, res: Response) =>
   const completed = tasks?.filter(t => t.status === 'completed').length || 0;
   const pending = tasks?.filter(t => t.status === 'pending').length || 0;
   const inProgress = tasks?.filter(t => t.status === 'in_progress').length || 0;
-  const overdue = tasks?.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < new Date()).length || 0;
+  
+  // ✅ CORRIGIDO: Usar created_at se start_date não existir
+  const now = new Date();
+  const overdue = tasks?.filter(t => {
+    if (t.status === 'completed' || !t.estimated_time) return false;
+    
+    // Usar start_date se existir, senão usar created_at
+    const referenceDate = t.start_date 
+      ? new Date(t.start_date) 
+      : new Date(t.created_at);
+    
+    const estimatedMinutes = t.estimated_time || 0;
+    const expectedEndDate = new Date(referenceDate.getTime() + estimatedMinutes * 60000);
+    
+    return expectedEndDate < now;
+  }).length || 0;
   
   const completedWithTime = tasks?.filter(t => t.status === 'completed' && t.tempo_real) || [];
   const totalTimeSpent = completedWithTime.reduce((sum, t) => sum + (t.tempo_real || 0), 0);
@@ -73,7 +88,7 @@ export const getProductivityByDay = asyncHandler(async (req: Request, res: Respo
 
   const { data, error } = await supabase
     .from('tasks')
-    .select('completed_at, tempo_real') // ✅ CORRIGIDO: actual_time → tempo_real
+    .select('completed_at, tempo_real')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .gte('completed_at', thirtyDaysAgo.toISOString())
@@ -90,7 +105,7 @@ export const getProductivityByDay = asyncHandler(async (req: Request, res: Respo
         productivityByDay[day] = { count: 0, time: 0 };
       }
       productivityByDay[day].count += 1;
-      productivityByDay[day].time += task.tempo_real || 0; // ✅ CORRIGIDO
+      productivityByDay[day].time += task.tempo_real || 0;
     }
   });
 

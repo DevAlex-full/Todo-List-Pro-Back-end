@@ -1,23 +1,11 @@
 import cron from 'node-cron';
 
-/**
- * 🔄 KEEP-ALIVE SERVICE
- * 
- * Mantém o servidor Render ativo fazendo self-ping a cada 5 minutos.
- * 
- * Render Free Tier dorme após 15 minutos de inatividade.
- * Este cron job faz ping no próprio servidor antes disso acontecer.
- */
-
 const BACKEND_URL = process.env.RENDER_EXTERNAL_HOSTNAME
   ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
   : 'https://taskflow-sai5.onrender.com';
 
 const PING_INTERVAL = '*/5 * * * *'; // A cada 5 minutos
 
-/**
- * Faz ping no servidor para mantê-lo ativo
- */
 async function keepAlive() {
   try {
     const url = `${BACKEND_URL}/api/health`;
@@ -42,9 +30,6 @@ async function keepAlive() {
   }
 }
 
-/**
- * Inicia o cron job de keep-alive
- */
 export function startKeepAlive() {
   // Só ativa em produção
   if (process.env.NODE_ENV !== 'production') {

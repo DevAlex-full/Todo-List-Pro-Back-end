@@ -89,7 +89,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response): Prom
     category_id: taskData.category_id || null,
     priority: taskData.priority || 'medium',
     status: 'pending',
-    due_date: taskData.due_date || null,
+    start_date: taskData.start_date || null,
     reminder_date: taskData.reminder_date || null,
     is_recurring: taskData.is_recurring || false,
     recurrence_pattern: taskData.recurrence_pattern || null,
@@ -277,7 +277,6 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
         console.log(`⏱️ Tempo calculado: ${timeSpentMinutes} minutos`);
       } catch (err) {
         console.warn('⚠️ Erro ao calcular tempo, ignorando:', err);
-        // Continua sem tempo_real se der erro
       }
     }
   } else {
@@ -307,53 +306,91 @@ export const toggleTaskComplete = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
- * TAREFAS ATRASADAS
+ * ✅ TAREFAS ATRASADAS - LÓGICA CORRIGIDA
+ * Usa created_at se start_date não existir
  */
 export const getOverdueTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
 
-  const { data, error } = await supabase
+  // Buscar todas as tarefas não completadas
+  const { data: tasks, error } = await supabase
     .from('tasks')
     .select('*, category:categories(*)')
     .eq('user_id', userId)
     .neq('status', 'completed')
-    .lt('due_date', new Date().toISOString())
-    .order('due_date', { ascending: true });
+    .order('created_at', { ascending: true });
 
   if (error) {
     throw new AppError(500, 'Erro ao buscar tarefas atrasadas: ' + error.message);
   }
 
+  // ✅ CORRIGIDO: Filtrar as atrasadas considerando created_at se start_date não existir
+  const now = new Date();
+  const overdueTasks = (tasks || []).filter((task: any) => {
+    if (!task.estimated_time) return false;
+    
+    // Usar start_date se existir, senão usar created_at
+    const referenceDate = task.start_date 
+      ? new Date(task.start_date) 
+      : new Date(task.created_at);
+    
+    const estimatedMinutes = task.estimated_time || 0;
+    const expectedEndDate = new Date(referenceDate.getTime() + estimatedMinutes * 60000);
+    
+    return expectedEndDate < now;
+  });
+
   res.json({
     success: true,
-    data: data || [],
+    data: overdueTasks,
   });
 });
 
 /**
- * TAREFAS DO DIA
+ * ✅ TAREFAS DO DIA - CORRIGIDO PARA MOSTRAR SÓ HOJE
  */
 export const getTodayTasks = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  // Definir início e fim do dia de hoje
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  const { data, error } = await supabase
+  console.log('📅 Buscando tarefas de hoje:', {
+    todayStart: todayStart.toISOString(),
+    todayEnd: todayEnd.toISOString(),
+  });
+
+  // Buscar TODAS as tarefas do usuário para filtrar no código
+  const { data: allTasks, error } = await supabase
     .from('tasks')
     .select('*, category:categories(*), subtasks(*)')
     .eq('user_id', userId)
-    .gte('due_date', today.toISOString())
-    .lt('due_date', tomorrow.toISOString())
     .order('priority', { ascending: false });
 
   if (error) {
     throw new AppError(500, 'Erro ao buscar tarefas de hoje: ' + error.message);
   }
 
+  // ✅ FILTRAR NO CÓDIGO: Tarefas criadas hoje OU com start_date = hoje
+  const todayTasks = (allTasks || []).filter((task: any) => {
+    const createdAt = new Date(task.created_at);
+    const startDate = task.start_date ? new Date(task.start_date) : null;
+    
+    // Verifica se foi criada hoje
+    const createdToday = createdAt >= todayStart && createdAt <= todayEnd;
+    
+    // Verifica se tem start_date = hoje
+    const startsToday = startDate && startDate >= todayStart && startDate <= todayEnd;
+    
+    return createdToday || startsToday;
+  });
+
+  console.log(`✅ Encontradas ${todayTasks.length} tarefas de hoje`);
+
   res.json({
     success: true,
-    data: data || [],
+    data: todayTasks,
   });
 });

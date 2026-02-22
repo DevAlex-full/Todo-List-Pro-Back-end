@@ -41,15 +41,15 @@ export interface Task {
   description: string | null;
   priority: Priority;
   status: TaskStatus;
-  due_date: string | null;
+  start_date: string | null; // ✅ ALTERADO: due_date → start_date
   reminder_date: string | null;
   completed_at: string | null;
   is_recurring: boolean;
   recurrence_pattern: RecurrencePattern | null;
   recurrence_interval: number | null;
   position: number;
-  estimated_time: number | null;
-  actual_time: number | null;
+  estimated_time: number | null; // Sempre em minutos
+  tempo_real: number | null; // Tempo real gasto em minutos
   tags: string[];
   attachments: Attachment[];
   created_at: string;
@@ -101,12 +101,12 @@ export interface CreateTaskDTO {
   description?: string;
   category_id?: string;
   priority?: Priority;
-  due_date?: string;
+  start_date?: string; // ✅ ALTERADO: due_date → start_date
   reminder_date?: string;
   is_recurring?: boolean;
   recurrence_pattern?: RecurrencePattern;
   recurrence_interval?: number;
-  estimated_time?: number;
+  estimated_time?: number; // Sempre em minutos no backend
   tags?: string[];
   attachments?: Attachment[];
 }
@@ -117,13 +117,13 @@ export interface UpdateTaskDTO {
   category_id?: string;
   priority?: Priority;
   status?: TaskStatus;
-  due_date?: string;
+  start_date?: string; // ✅ ALTERADO: due_date → start_date
   reminder_date?: string;
   is_recurring?: boolean;
   recurrence_pattern?: RecurrencePattern;
   recurrence_interval?: number;
   estimated_time?: number;
-  actual_time?: number;
+  tempo_real?: number;
   tags?: string[];
   attachments?: Attachment[];
   position?: number;
@@ -182,8 +182,8 @@ export interface TaskFilters {
   category_id?: string;
   tags?: string[];
   search?: string;
-  due_date_from?: string;
-  due_date_to?: string;
+  start_date_from?: string; // ✅ ALTERADO
+  start_date_to?: string; // ✅ ALTERADO
 }
 
 // ========================================
